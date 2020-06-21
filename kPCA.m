@@ -13,7 +13,7 @@
 
 %   Kernal PCA method for 
 
-function [Y, eigVector, eigValue]=kPCA(X,d,type,para)
+function [K0, eigVector, eigValue]=kPCA(X,type,para)
 
 %% check input
 if ( strcmp(type,'simple') || strcmp(type,'poly') || ...
@@ -42,7 +42,8 @@ eigValue=eigValue(IX);
 norm_eigVector=sqrt(sum(eigVector.^2));
 eigVector=eigVector./repmat(norm_eigVector,size(eigVector,1),1);
 
-%% dimensionality reduction
-eigVector=eigVector(:,1:d);
-Y=K0*eigVector;
+end
+% %% dimensionality reduction
+% eigVector=eigVector(:,1:d);
+% Y=K0*eigVector;
 

@@ -68,90 +68,18 @@ svdInput = [ real( velo_data_POD ); imag( velo_data_POD ) ];                % Ro
 switch svd_method                                                           % Detect svd method
     case 'Direct'                                                           % Direct apply svd to the skinny matrix
         % svd
-        C = svdInput;    
- %  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%PCA method%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           
-%         %Using PCA instead with different method default pca is svd
-%          [ pcacoeff, pcascore, latent ] = pca( C');                     
-%   %      [ pcacoeff, pcascore, latent ] = pca( C','algorithm','als');
-%   %      [ pcacoeff, pcascore, latent ] = pca( C','algorithm','eig' );
-%   
-%          nMode=rank(pcacoeff);
-%          Mode=pcacoeff;
-%          Coeff=pcascore';
-%         
-         
-   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%KPCA method%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
-   
-%% Gaussian kernel PCA
-d=5;
-DIST=distanceMatrix(C);
-DIST(DIST==0)=inf;
-DIST=min(DIST);
-para=5*mean(DIST);
-disp('Performing Gaussian kernel PCA...');
-[Y3, eigVector]=kPCA(C,d,'gaussian',para);
-
-
-% pre-image reconstruction for Gaussian kernel PCA
-disp('Performing kPCA pre-image reconstruction...');
-PI=zeros(size(C)); % pre-image
-for i=1:size(C,1)
-    PI(i,:)=kPCA_PreImage(Y3(i,:)',eigVector,C,para)';
-end   
-
-
-%       Kvalue=300;
-%       KPCA=kernelpca(C',Kvalue);
-%       KPCA=KPCA';
-%       KPCA=KPCA(:,2:Kvalue);
-
-% fit pca model and get the coefficient for projection with dataset 'X'
-% setting 'AutoScale' true is reccomended (default:false)
-%kpca = KernelPca(C', 'linear');
-
-% set the subspace dimention number M of projected data
-% (M <= D, where D is the dimention of the original data)
-%M = 20;
-
-% project the train data 'X' into the subspace by using the coefficient
-%projected_X = project(kpca, C', M);
-
-  
- %  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%MDmethod%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%       
- 
-      %Using MD instead with different method default  is the same as PCA
-      
-      % different methods 'euclidean' is default which is the same as pca, 
-      %Other methods include 'mahalanobis''chebychev''minkowski'
-      D = pdist(C','Euclidean');             
-      [MD,eigvals] = cmdscale(D);
-  
-      nMode=rank(MD);
-      Mode=C/(MD');
-      Coeff=MD';
- 
- 
- 
- 
- 
+        C = svdInput;                                                       % Correlation matrix = Velocity (nLoc * nSnap)
+        [ svdU, svdS, svdV ] = svd( C, 0 );                                 % C = U * S * V'
+        nMode = rank( svdS );                                               % No. of modes
+        % Eliminate extra zero rows/columns according to No. of modes
+        svdU = svdU( :, 1 : nMode );
+        svdS = svdS( 1 : nMode, 1 : nMode );
+        svdV = svdV( :, 1 : nMode );
+        % Calculate modes and coefficients
+        KE_mode = diag( svdS ).^2 / 2;                                      % Kinetic energy for each mode
+        Mode = svdU;                                                        % Modes, Rows: Locations, Columns: Modes
+        Coeff = Mode' * svdInput;                                           % Mode coefficients, Rows: Modes, Columns: Snapshots; can be also obtained using svdS * svdV'
         
-%  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%SVD method%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%       
-%         % Correlation matrix = Velocity (nLoc * nSnap)
-%         [ svdU, svdS, svdV ] = svd( C, 0 );      % C = U * S * V'      
-%        
-%          nMode = rank( svdS );                                               % No. of modes
-%      %   Eliminate extra zero rows/columns according to No. of modes
-%         svdU = svdU( :, 1 : nMode );
-%         svdS = svdS( 1 : nMode, 1 : nMode );
-%         svdV = svdV( :, 1 : nMode );
-%    
-%         % Calculate modes and coefficients
-%         KE_mode = diag( svdS ).^2 / 2;                                      % Kinetic energy for each mode
-%         Mode = svdU;                                                        % Modes, Rows: Locations, Columns: Modes
-%         Coeff = Mode' * svdInput;                                           % Mode coefficients, Rows: Modes, Columns: Snapshots; can be also obtained using svdS * svdV'
-% 
-%         
-%         
     case 'Snapshot'                                                         % Method of Snapshots, building a correlation matrix for svd calculation (not recommended)
         % Check "skinny" matrix assumption
         if nLoc < nSnap
@@ -178,11 +106,6 @@ end
 % Step 1: Re-format mode for quiver plot: Rows: Locations, Columns: Modes(in complex form)
 Mode = complex( Mode( 1 : nLoc , : ), ...
             Mode( ( nLoc + 1 ) : end , : ) );                            % Express real number modes in complex form
- 
-        
-
-KPCA = complex(PI( 1 : nLoc , : ), ... 
-           PI( ( nLoc + 1 ) : end , : ) );                            % Express real number modes in complex form        
         
 % Step 2: Keep most of mode 1 coefficients to be positive
 if length( find( Coeff( 1, : ) < 0 ) ) > 1/2 * nSnap
@@ -190,27 +113,20 @@ if length( find( Coeff( 1, : ) < 0 ) ) > 1/2 * nSnap
     Mode( :, 1 ) = - Mode( :, 1 );
 end
 
-
-
-
-
 %% Outputs
 Result.nLoc = nLoc;                                                         % No. of locations
 Result.nSnap = nSnap;                                                       % No. of snapshots
 Result.nMode = nMode;                                                       % No. of modes
-Result.svdInput = svdInput;                                                 % svd input Velocity, Rows: Locations, Columns: Snapshots
+% Result.svdInput = svdInput;                                               % svd input Velocity, Rows: Locations, Columns: Snapshots
 % Result.C = C;                                                               % Corrlation matrix that is sent into svd
-%  Result.svdU = svdU;                                                         % svd result U
-%  Result.svdS = svdS;                                                         % svd result S
-%  Result.svdV = svdV;                                                         % svd result V
-%Result.svdMode = Mode;                                                   % Modes based on svd result, before rotating
-%Result.svdCoeff = Coeff;                                                 % Mode coefficients based on svd result, before rotating
+% Result.svdU = svdU;                                                         % svd result U
+% Result.svdS = svdS;                                                         % svd result S
+% Result.svdV = svdV;                                                         % svd result V
+% Result.svdMode = svdMode;                                                   % Modes based on svd result, before rotating
+% Result.svdCoeff = svdCoeff;                                                 % Mode coefficients based on svd result, before rotating
 Result.EnsembleMean = ensemble_mean;                                        % Ensemble mean velocity, nLoc * 1
 Result.Mode = Mode;                                                         % Modes, Rows: Locations, Columns: Modes (in complex form)
 Result.Coeff = Coeff;                                                       % Mode coefficients, Rows: Modes, Columns: Snapshots
-Result.KPCA = KPCA;                                                       % Mode coefficients, Rows: Modes, Columns: Snapshots
-Result.project = PI;                                                       % Mode coefficients, Rows: Modes, Columns: Snapshots
-
-%Result.KE_mode = KE_mode;                                                   % Kinetic Energy for each mode, in J/kg (nMode*1)
+Result.KE_mode = KE_mode;                                                   % Kinetic Energy for each mode, in J/kg (nMode*1)
 Result.CenterIndex = POD_center_index;                                      % 'Centered' = Centered around the ensemble mean before conducting POD, 'NotCentered' = Not centered
 end
