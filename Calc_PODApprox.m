@@ -4,9 +4,21 @@ function [ PODApprox ] = Calc_PODApprox( PODResult, nModes, CycleNo, nRowsInOrig
 
 switch PODResult.CenterIndex
     case 'Centered'
-        PODcumsum = PODResult.Mode( :, 1:nModes ) * PODResult.Coeff( 1:nModes, : ) + PODResult.EnsembleMean;        
+        if mod( nModes, 1 ) == 0 && nModes > 0 && nModes <= PODResult.nMode
+            PODcumsum = PODResult.Mode( :, 1:nModes ) * PODResult.Coeff( 1:nModes, : ) + PODResult.EnsembleMean;
+        elseif nModes == 0
+            PODcumsum = PODResult.EnsembleMean;
+        else
+            error( 'Invalid nModes' )
+        end
     case 'NotCentered'
-        PODcumsum = PODResult.Mode( :, 1:nModes ) * PODResult.Coeff( 1:nModes, : );   
+        if mod( nModes, 1 ) == 0 && nModes > 0 && nModes <= PODResult.nMode
+            PODcumsum = PODResult.Mode( :, 1:nModes ) * PODResult.Coeff( 1:nModes, : );
+        elseif nModes == 0
+            error( 'nModes = 0 is not supported when the POD is performed on a non-centered data.' )
+        else
+            error( 'Invalid nModes' )
+        end
 end
 
 PODApprox.U = nan( nRowsInOriginal, nColsInOriginal, 1, length( CycleNo ) );
