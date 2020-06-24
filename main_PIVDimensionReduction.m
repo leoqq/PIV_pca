@@ -2,7 +2,7 @@
 % Author(s): Li (Sam) Shen and Xiaohang (Leo) Fang
 % sam-li.shen@eng.ox.ac.uk
 % xiaohang.fang@eng.ox.ac.uk
-% Last updated date: 2020.05.18
+% Last updated date: 2020.06.22
 
 %% Clean up
 clear all %#ok<CLALL>
@@ -21,34 +21,46 @@ MaskedData = myData.MaskedData;
 PODData = myData.PODData;
 
 %% Parameters setting
-AnalysisResult.CrankAngle = [ -270 ];                                   % Change this line to allow more crank angles (avaiable from -295 to -60 CAD aTDCf)
-% AnalysisResult.PODApprox.nModes = 10;                                       % Change this line to include different numbers POD components into POD approximations
+AnalysisResult.CrankAngle = [ -280 ];                                   % Change this line to allow more crank angles (avaiable from -295 to -60 CAD aTDCf)
 AnalysisResult.PODApprox.CycleNo = 1:300;                                   % Do not change this line
-AnalysisResult.KPCAApprox.nDimension = [ 1:10:2200 ];                             % Change this line to use different numbers of KPCA dimensions
+
+[ ~, AnalysisResult.CrankAngleIndex ] = ismember( AnalysisResult.CrankAngle, PODData.CrankAngle );
+
+AnalysisResult.KPCAApprox.nDimension = 1:1:size( PODData.X{AnalysisResult.CrankAngleIndex}, 1 ); % Change this line to use different numbers of KPCA dimensions
 
 %% POD Analysis
-[ ~, AnalysisResult.CrankAngleIndex ] = ismember( AnalysisResult.CrankAngle, PODData.CrankAngle );
+
 
 % AnalysisResult.PODResult = cell( length( AnalysisResult.CrankAngleIndex ), 1 );
 % AnalysisResult.KPCAResult = cell( length( AnalysisResult.CrankAngleIndex ), 1 );
 % AnalysisResult.PODApprox.U = nan( PODData.nRowsInOriginal, PODData.nColsInOriginal, length( AnalysisResult.CrankAngleIndex ), length( AnalysisResult.PODApprox.CycleNo ) );
 % AnalysisResult.PODApprox.V = nan( PODData.nRowsInOriginal, PODData.nColsInOriginal, length( AnalysisResult.CrankAngleIndex ), length( AnalysisResult.PODApprox.CycleNo ) );
 
+
 for ca_No = 1 : length( AnalysisResult.CrankAngleIndex )
     % Perform POD
     CurrentCrankAngle = AnalysisResult.CrankAngle( ca_No );
     fprintf( 'CA = %.0f CAD aTDCf \n', CurrentCrankAngle )
     
+    PODGrid.X = PODData.X{ AnalysisResult.CrankAngleIndex( ca_No ) };
+    PODGrid.Y = PODData.Y{ AnalysisResult.CrankAngleIndex( ca_No ) };
+    PODGrid.IndexInOriginal = PODData.IndexInOriginal{ AnalysisResult.CrankAngleIndex( ca_No ) };
+    PODGrid.nRowsInOriginal = size( MaskedData.X, 1 );
+    PODGrid.nColsInOriginal = size( MaskedData.X, 2 );
+    
+    OriginalGrid.X = MaskedData.X;
+    OriginalGrid.Y = MaskedData.Y;
+    
     temp_velo_data = complex( PODData.U{ AnalysisResult.CrankAngleIndex( ca_No ) }, PODData.V{ AnalysisResult.CrankAngleIndex( ca_No ) } );
     PODResult = Perform_POD( temp_velo_data, 'Centered', 'Direct' );
-%     AnalysisResult.PODResult{ ca_No } = temp_PODResult;
+    
     
     KPCAResult = Perform_GaussianKernelPCA( temp_velo_data, 'Centered', AnalysisResult.KPCAApprox.nDimension  );
  
     temp_save_name_file = [ DataNamePrefix, '_CA_', num2str( abs( CurrentCrankAngle ) ) ];
 
     fprintf( 'Saving data to current folder... \n' )
-    save( matlab.lang.makeValidName( temp_save_name_file ), 'CurrentCrankAngle', 'PODResult', 'KPCAResult' );
+    save( matlab.lang.makeValidName( temp_save_name_file ), 'CurrentCrankAngle', 'PODResult', 'KPCAResult', 'PODGrid', 'OriginalGrid' );
     fprintf( 'Data saved... \n' )
 %     clear temp_* CurrentCrankAngle PODResult KPCAResult
 %     AnalysisResult.KPCAResult{ ca_No } = temp_KPCAResult;
